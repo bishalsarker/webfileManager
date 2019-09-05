@@ -1,0 +1,451 @@
+﻿
+@{
+    Layout = null;
+}
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Bootstrap Example</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/css/bootstrap.min.css">
+    <script src="https://ajax.googleapis.com/ajax/libs/jquery/3.3.1/jquery.min.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/popper.js/1.14.3/umd/popper.min.js"></script>
+    <script src="https://maxcdn.bootstrapcdn.com/bootstrap/4.1.3/js/bootstrap.min.js"></script>
+    <link href="~/Contents/font-awesome.min.css" rel="stylesheet" />
+    <style>
+        .fullscreen-container {
+            display: none;
+            position: fixed;
+            top: 0;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(90, 90, 90, 0.5);
+            z-index: 9999;
+        }
+
+        #popdiv {
+            color: white;
+            text-align: center;
+            margin: 0;
+            position: fixed;
+            top: 30%;
+            bottom: 30%;
+            left: 30%;
+            right: 30%;
+        }
+
+        .dropdown-toggle {
+            padding-left: 20px;
+            padding-right: 20px;
+            cursor: default;
+        }
+        .dropdown-toggle::after{
+            display: none;
+        }
+
+        #upFile {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <div class="fullscreen-container">
+        <div id="popdiv">
+            <h1>Uploading...</h1>
+            <h1 id="percentage"></h1>
+        </div>
+    </div>
+
+    <div class="container">
+        <nav class="navbar navbar-expand-sm bg-dark navbar-dark">
+            <!-- Brand/logo -->
+            <a class="navbar-brand" href="#" id="goPrev">
+                <i class="fa fa-arrow-left fa-lg" aria-hidden="true"></i>
+            </a>
+
+            <!-- Links -->
+            <ul class="navbar-nav ml-auto">
+                <li class="nav-item">
+                    <div class="dropdown" id="menu">
+                        <a class="dropdown-toggle" data-toggle="dropdown" style="color: white;">
+                            <i class="fa fa-cog fa-lg" aria-hidden="true"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-right">
+                            <li><a class="dropdown-item" href="#"><b><i class="fa fa-clone" aria-hidden="true"></i> Copy</b></a></li>
+                            <li><a class="dropdown-item" href="#"><b><i class="fa fa-scissors" aria-hidden="true"></i> Cut</b></a></li>
+                            <li><a class="dropdown-item" href="#"><b><i class="fa fa-pencil-square" aria-hidden="true"></i> Rename</b></a></li>
+                            <li><a class="dropdown-item" href="#"><b><i class="fa fa-info-circle" aria-hidden="true"></i> Details</b></a></li>
+                            <li><a id="del" class="dropdown-item" href="#"><b><i class="fa fa-trash" aria-hidden="true"></i> Delete</b></a></li>
+                        </ul>
+                    </div>
+                </li>
+                <li class="nav-item">
+                    <div class="dropdown">
+                        <a class="dropdown-toggle" data-toggle="dropdown" style="color: white;">
+                            <i class="fa fa-plus-circle fa-lg" aria-hidden="true"></i>
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-right">
+                            <li>
+                                <input type="file" name="upFile" id="upFile" multiple/>
+                                <a class="dropdown-item" href="#" id="upFileLink">
+                                <b><i class="fa fa-cloud-upload" aria-hidden="true"></i> Upload files</b>
+                                </a>
+                            </li>
+                            <li><a class="dropdown-item" href="#" data-toggle="modal" data-target="#myModal"><b><i class=" fa fa-folder" aria-hidden="true"></i> New Folder</b></a></li>
+                        </ul>
+                    </div>
+                </li>
+            </ul>
+        </nav>
+
+        <div class="table-responsive">
+            <input type="hidden" id="currPage" value=""/>
+            <table class="table">
+                <thead>
+                    <tr>
+                        <th><input type="checkbox" value="" id="selectAll"></th>
+                        <th>Name</th>
+                        <th>Size</th>
+                    </tr>
+                </thead>
+                <tbody id="file-list">
+                    
+                </tbody>
+            </table>
+        </div>
+        <div style="background-color: #808080; position: relative; left:0; right: 0; height: 100px; text-align:center;">
+            <h4 id="usedSpace" style="color: white"></h4>
+        </div>
+    </div>
+
+    <!-- The Modal -->
+    <div class="modal" id="myModal">
+        <div class="modal-dialog">
+            <div class="modal-content">
+
+                <!-- Modal Header -->
+                <div class="modal-header">
+                    <h4 class="modal-title">Create a folder</h4>
+                    <button type="button" class="close" data-dismiss="modal">&times;</button>
+                </div>
+
+                <!-- Modal body -->
+                <div class="modal-body">
+                    <input id="nfName" type="text" class="form-control form-control-lg" placeholder="Name the folder...">
+                </div>
+
+                <!-- Modal footer -->
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-danger" data-dismiss="modal">Close</button>
+                    <button id="newFolder" type="button" class="btn btn-primary" data-dismiss="modal">Create</button>
+                </div>
+
+            </div>
+        </div>
+    </div>
+
+    <script>
+        var item = [];
+        $("#menu .dropdown-toggle").hide();
+        $(function () {
+            getAllFiles();
+            window.setInterval(function () {
+                var count = item.length;
+                if (count > 0) {
+                    $("#menu .dropdown-toggle").show();
+                }
+                else {
+                    $("#menu .dropdown-toggle").hide();
+                }
+
+                var f = document.getElementById("upFile").files;
+                if (f.length > 0) {
+                    var m = 0;
+                    fileData = new FormData();
+                    while (m < f.length) {
+                        fileData.append("files", f[m]);
+                        m++;
+                    }
+
+                    var curr = $("#currPage").val();
+                    fileData.append("loc", curr);
+
+                    alert(curr);
+
+                    $.ajax({
+                        url: '../Home/UploadFIles',
+                        type: "POST",
+                        contentType: false,
+                        processData: false,
+                        data: fileData,
+                        beforeSend: function () {
+                            $(".fullscreen-container").fadeTo(200, 1);
+                        },
+                        xhr: function () {
+                            var xhr = $.ajaxSettings.xhr();
+                            xhr.upload.onprogress = function (e) {
+                                if (e.lengthComputable) {
+                                    var per = parseInt((e.loaded / e.total) * 100) + "%";
+                                    $("#percentage").html(per);
+                                }
+                            };
+                            return xhr;
+                        },
+                        complete: function () {
+                            $(".fullscreen-container").fadeOut(200);
+                        },
+                        success: function (result) {
+                            var x = JSON.stringify(result);
+                            var y = JSON.parse(x);
+
+                            if (y.status == "500") {
+                                alert("Something went wrong..");
+                            }
+                            else {
+                                var curr = $("#currPage").val();
+                                refreshFiles();
+                            }
+                        },
+                        error: function (err) {
+                            alert(err.status);
+                        }
+                    });
+
+                    document.getElementById("upFile").value = "";
+                    f = 0;
+                }
+
+                getUsedSpace();
+
+            });
+
+            $("#selectAll").click(function () {
+                item = [];
+                var isChecked = $(this).prop("checked");
+                if (isChecked) {
+                    $("tbody input").prop("checked", true);
+                    $("tbody input").prop("disabled", true);
+                    $("tbody input:checked").each(function () {
+                        item.push($(this).val());
+                    });
+                }
+                else {
+                    $("tbody input").prop("checked", false);
+                    $("tbody input").prop("disabled", false);
+                    $("tbody input:checked").each(function () {
+                        item.pop($(this).val());
+                    });
+                }
+                console.log(item.length);
+            });
+
+            $("#upFileLink").click(function (e) {
+                e.preventDefault();
+                $("#upFile").trigger('click');
+            });
+
+            $("#goPrev").click(function (e) {
+                e.preventDefault();
+                $("#file-list").html("");
+
+                var curr = $("#currPage").val();
+
+                $.get("../Home/getPrevDir?currPage=" + curr, function (data, status) {
+                    var x = JSON.stringify(data);
+                    var y = JSON.parse(x);
+
+                    if (y.status == "500") {
+                        alert("Something's went wrong...");
+                    }
+                    else {
+                        if (y.folders != null) {
+                            $.each(y.folders, function (key, value) {
+                                $("#file-list").append("<tr>" +
+                                                        "<th><input type='checkbox' value='" + value.folderName + "'></th>" +
+                                                        "<td><a href='#' onclick='getAllFiles(\"" + value.folderName + "\")' >" + value.folderName + "</a></td>" +
+                                                        "<td></td>" + "</tr>");
+                            });
+                        }
+
+                        if (y.files != null) {
+                            $.each(y.files, function (key, value) {
+                                $("#file-list").append("<tr>" +
+                                                        "<th><input type='checkbox' value='" + value.fileName + "'></th>" +
+                                                        "<td>" + value.fileName + "</td>" +
+                                                        "<td>" + value.size + "</td>" + "</tr>");
+                            });
+                        }
+                    }
+
+                    $("#currPage").val(y.curr);
+
+                    $("tbody input").click(function () {
+                        var isChecked = $(this).prop("checked");
+                        var value = $(this).attr("value");
+                        if (isChecked) {
+                            item.push(value);
+                        }
+                        else {
+                            item.pop(value);
+                        }
+                        console.log(item.length);
+                    });
+                });
+            });
+
+            $("#newFolder").click(function (e) {
+                e.preventDefault();
+
+                var curr = $("#currPage").val();
+                var fname = $("#nfName").val();
+
+                $.get("../Home/createDir?folderName=" + fname + "&location=" + curr, function (data, status) {
+                    var x = JSON.stringify(data);
+                    var y = JSON.parse(x);
+
+                    if (y.status == "500") {
+                        alert("Something went wrong...")
+                    }
+                    else {
+                        refreshFiles();
+                    }
+                });
+            });
+
+            $("#del").click(function (e) {
+                e.preventDefault();
+
+                var curr = $("#currPage").val();
+
+                var d = [];
+
+                $.each(item, function (key, val) {
+                    d.push({name: val});
+                });
+
+                $.post("../Home/delete", { names: JSON.stringify(d), location: curr }, function (data, status) {
+                    var x = JSON.stringify(data);
+                    var y = JSON.parse(x);
+
+                    alert(x);
+
+                    if (y.status == "500") {
+                        alert("Something went wrong...");
+                    }
+                    else {
+                        refreshFiles();
+                    }
+                });
+            });
+        });
+            
+
+        function getAllFiles(folderName) {
+            $("#file-list").html("");
+            if (folderName == undefined) {
+                folderName = "";
+            }
+
+            var curr = $("#currPage").val();
+
+            $.get("../Home/getDir?folder=" + folderName + "&currPage=" + curr, function (data, status) {
+                var x = JSON.stringify(data);
+                var y = JSON.parse(x);
+
+                if (y.status == "500") {
+                    alert("Something's went wrong...");
+                }
+                else {
+                    if (y.folders != null) {
+                        $.each(y.folders, function (key, value) {
+                            $("#file-list").append("<tr>" +
+                                                    "<th><input type='checkbox' value='" + value.folderName + "'></th>" +
+                                                    "<td><a href='#' onclick='getAllFiles(\"" + value.folderName + "\")' >" + value.folderName + "</a></td>" +
+                                                    "<td></td>" + "</tr>");
+                        });
+                    }
+
+                    if (y.files != null) {
+                        $.each(y.files, function (key, value) {
+                            $("#file-list").append("<tr>" +
+                                                    "<th><input type='checkbox' value='" + value.fileName + "'></th>" +
+                                                    "<td>" + value.fileName + "</td>" +
+                                                    "<td>" + value.size + "</td>" + "</tr>");
+                        });
+                    }
+                }
+                
+                $("#currPage").val(y.curr);
+
+                $("tbody input").click(function () {
+                    var isChecked = $(this).prop("checked");
+                    var value = $(this).attr("value");
+                    if (isChecked) {
+                        item.push(value);
+                    }
+                    else {
+                        item.pop(value);
+                    }
+                });
+            });
+        }
+        function refreshFiles() {
+            $("#file-list").html("");
+
+            var curr = $("#currPage").val();
+
+            $.get("../Home/refreshDir?currPage=" + curr, function (data, status) {
+                var x = JSON.stringify(data);
+                var y = JSON.parse(x);
+
+                if (y.status == "500") {
+                    alert("Something's went wrong...");
+                }
+                else {
+                    if (y.folders != null) {
+                        $.each(y.folders, function (key, value) {
+                            $("#file-list").append("<tr>" +
+                                                    "<th><input type='checkbox' value='" + value.folderName + "'></th>" +
+                                                    "<td><a href='#' onclick='getAllFiles(\"" + value.folderName + "\")' >" + value.folderName + "</a></td>" +
+                                                    "<td></td>" + "</tr>");
+                        });
+                    }
+
+                    if (y.files != null) {
+                        $.each(y.files, function (key, value) {
+                            $("#file-list").append("<tr>" +
+                                                    "<th><input type='checkbox' value='" + value.fileName + "'></th>" +
+                                                    "<td>" + value.fileName + "</td>" +
+                                                    "<td>" + value.size + "</td>" + "</tr>");
+                        });
+                    }
+                }
+
+                $("#currPage").val(y.curr);
+
+                $("tbody input").click(function () {
+                    var isChecked = $(this).prop("checked");
+                    var value = $(this).attr("value");
+                    if (isChecked) {
+                        item.push(value);
+                    }
+                    else {
+                        item.pop(value);
+                    }
+                    console.log(item.length);
+                });
+            });
+        }
+        function getUsedSpace() {
+            $.get("../Home/getUsedSpace", function (data, status) {
+                $("#usedSpace").html("Used: " + data + " out of 180 gb");
+            });               
+        }
+
+    </script>
+</body>
+</html>
+
